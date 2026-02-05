@@ -30,6 +30,58 @@ fs.existsSync(tempDir) || fs.mkdirSync(tempDir, { recursive: !0 })
 setInterval(() => console.clear(), 6e5)
 init
 
+// ========== FUNGSI UNTUK DUAL MODE ==========
+const loadBotConfig = () => {
+  try {
+    const configPath = path.join(dirname, '../set/config.json')
+    if (!fs.existsSync(configPath)) {
+      log(c.yellowBright('⚠️  config.json tidak ditemukan, menggunakan mode default (dual)'))
+      return { botSetting: { mode: 'dual' } }
+    }
+    
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
+    
+    // Validasi struktur config
+    if (!config.botSetting) {
+      config.botSetting = { mode: 'dual' }
+      fs.writeFileSync(configPath, JSON.stringify(config, null, 2))
+      log(c.yellowBright('⚠️  botSetting tidak ditemukan, menambahkan mode default (dual)'))
+    }
+    
+    // Validasi nilai mode
+    const validModes = ['dual', 'group', 'private']
+    if (!config.botSetting.mode || !validModes.includes(config.botSetting.mode)) {
+      config.botSetting.mode = 'dual'
+      fs.writeFileSync(configPath, JSON.stringify(config, null, 2))
+      log(c.yellowBright('⚠️  mode tidak valid, mengatur ke mode default (dual)'))
+    }
+    
+    return config
+  } catch (e) {
+    log(c.redBright('❌ Error membaca config.json:', e.message))
+    return { botSetting: { mode: 'dual' } }
+  }
+}
+
+const checkBotMode = (chat, botMode) => {
+  try {
+    switch(botMode) {
+      case 'dual':
+        return true // Semua chat diperbolehkan
+      case 'group':
+        return chat.group // Hanya grup
+      case 'private':
+        return !chat.group // Hanya private
+      default:
+        return true // Default ke dual
+    }
+  } catch (e) {
+    log(c.redBright('❌ Error checkBotMode:', e.message))
+    return true // Fallback ke dual mode
+  }
+}
+// ========== END FUNGSI DUAL MODE ==========
+
 const startBot = async () => {
   try {
     const { state, saveCreds } = await useMultiFileAuthState('./connect/session')
@@ -79,6 +131,22 @@ const startBot = async () => {
               name = chat.pushName || chat.sender || chat.id,
               isMode = await mode(xp, chat),
               gcData = chat.group && getGc(chat)
+        
+        // ========== CEK DUAL MODE ==========
+        let botConfig, botMode
+        try {
+          botConfig = loadBotConfig()
+          botMode = botConfig.botSetting?.mode || 'dual'
+          
+          // Skip pesan yang tidak sesuai mode tanpa mengirim warning
+          if (!checkBotMode(chat, botMode)) {
+            continue // Lewati pesan ini tanpa feedback
+          }
+        } catch (e) {
+          log(c.redBright('❌ Error dalam pengecekan mode:', e.message))
+          // Lanjutkan dengan mode dual sebagai fallback
+        }
+        // ========== END CEK DUAL MODE ==========
 
         if (chat.group && Object.keys(meta).length) { await saveLidCache(meta) }
 
@@ -91,7 +159,8 @@ const startBot = async () => {
                 : `[ ${name} ]`
           ) +
           c.white.bold(' | ') +
-          c.blueBright.bold(`[ ${time} ]`)
+          c.blueBright.bold(`[ ${time} ]`) +
+          c.greenBright.bold(` [MODE: ${botMode?.toUpperCase() || 'DUAL'}]`)
         )
 
         ;(media || text) &&
@@ -174,6 +243,23 @@ const startBot = async () => {
         v.author = f?.phoneNumber || a
       })
     )
+    
+    // Log status bot saat startup
+    try {
+      const botConfig = loadBotConfig()
+      const botMode = botConfig.botSetting?.mode || 'dual'
+      const modeDescriptions = {
+        'dual': 'Dual (Grup & Private)',
+        'group': 'Group Only',
+        'private': 'Private Only'
+      }
+      
+      log(c.greenBright.bold(`🤖 Bot berjalan dalam mode: ${modeDescriptions[botMode]}`))
+      log(c.cyanBright.bold(`ℹ️  Gunakan command .mode [dual/group/private] untuk mengubah mode`))
+    } catch (e) {
+      log(c.yellowBright('⚠️  Gagal membaca mode bot, menggunakan mode default'))
+    }
+    
   } catch (e) {
     err(c.redBright.bold('Error pada index.js:'), e)
   }
