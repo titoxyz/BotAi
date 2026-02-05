@@ -33,7 +33,7 @@ init
 // ========== FUNGSI UNTUK DUAL MODE ==========
 const loadBotConfig = () => {
   try {
-    const configPath = path.join(dirname, '../set/config.json')
+    const configPath = path.join(dirname, '../system/set/config.json')
     if (!fs.existsSync(configPath)) {
       log(c.yellowBright('⚠️  config.json tidak ditemukan, menggunakan mode default (dual)'))
       return { botSetting: { mode: 'dual' } }
