@@ -444,7 +444,7 @@ export default function owner(ev) {
     name: 'mode',
     cmd: ['mode'],
     tags: 'Owner Menu',
-    desc: 'setting mode group/private',
+    desc: 'setting mode: dual/group/private',
     owner: !0,
     prefix: !0,
     money: 0,
@@ -459,16 +459,32 @@ export default function owner(ev) {
       try {
         const arg = args[0]?.toLowerCase(),
               cfg = JSON.parse(fs.readFileSync(config, 'utf-8')),
-              input = arg === 'group',
-              type = v => v ? 'Group' : 'Private',
-              md = type(global.isGroup)
-
-        if (!['private', 'group'].includes(arg)) return xp.sendMessage(chat.id, { text: `gunakan: ${prefix}${cmd} group/private\n\n${cmd}: ${md}` }, { quoted: m })
-
-        cfg.botSetting.isGroup = input
+              currentMode = cfg.botSetting?.mode || 'dual'
+        
+        if (!['dual', 'group', 'private'].includes(arg)) {
+          return xp.sendMessage(chat.id, { 
+            text: `*Mode Settings*\n\n` +
+                  `• Gunakan: ${prefix}${cmd} [mode]\n` +
+                  `• Mode saat ini: *${currentMode.toUpperCase()}*\n\n` +
+                  `*Pilihan mode:*\n` +
+                  `┣ dual : Bot aktif di grup & private\n` +
+                  `┣ group : Bot hanya aktif di grup\n` +
+                  `┗ private : Bot hanya aktif di private`
+          }, { quoted: m })
+        }
+        
+        cfg.botSetting.mode = arg
         fs.writeFileSync(config, JSON.stringify(cfg, null, 2))
-
-        xp.sendMessage(chat.id, { text: `${cmd} berhasil diganti ${input ? 'ke group' : 'ke private'}` }, { quoted: m })
+        
+        const modeDesc = {
+          dual: 'Dual (Grup & Private)',
+          group: 'Group Only',
+          private: 'Private Only'
+        }
+        
+        xp.sendMessage(chat.id, { 
+          text: `✅ Mode berhasil diubah ke: *${modeDesc[arg]}*`
+        }, { quoted: m })
       } catch (e) {
         err(`error pada ${cmd}`, e)
         call(xp, e, m)
